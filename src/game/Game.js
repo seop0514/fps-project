@@ -25,6 +25,8 @@ export class Game {
 
     this.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 500);
     this.camera.rotation.order = 'YXZ';
+    // 카메라를 씬에 추가해야 카메라의 자식(1인칭 총기 뷰모델)이 렌더링됨
+    this.scene.add(this.camera);
 
     // --- 조명 ---
     this.scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x3a3f45, 0.7));
