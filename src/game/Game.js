@@ -29,6 +29,7 @@ export class Game {
     this.scene.add(this.camera);
 
     // --- 조명 ---
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.45));
     this.scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x3a3f45, 0.7));
     const sun = new THREE.DirectionalLight(0xffffff, 1.3);
     sun.position.set(35, 45, 20);
@@ -94,6 +95,9 @@ export class Game {
     // --- 루프 ---
     this.clock = new THREE.Clock();
     this.renderer.setAnimationLoop(this.tick.bind(this));
+
+    // 디버그/외부 접근용 노출
+    window.__game = this;
   }
 
   // ------------------------------------------------------------ HUD

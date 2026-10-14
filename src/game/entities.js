@@ -7,6 +7,9 @@ const BASE_SPEED = 5.0;
 const GRAVITY = -22;
 const JUMP_SPEED = 6.0;
 
+// AI 명중 정확도 배율 (낮을수록 에임이 약해짐)
+const BOT_ACCURACY = 0.6;
+
 function clamp(v, a, b) {
   return Math.max(a, Math.min(b, v));
 }
@@ -372,8 +375,8 @@ export class Bot {
       ) {
         this.lastShot = time;
         this.mag--;
-        // 확률 기반 명중
-        const p = clamp(1 - dist / weapon.range, 0.12, 0.85) * 0.85;
+        // 확률 기반 명중 (AI 에임 정확도)
+        const p = clamp(1 - dist / weapon.range, 0.08, 0.75) * BOT_ACCURACY;
         const hit = Math.random() < p;
         const tracerColor = this.team === 'B' ? 0xff6b5e : 0x6fb1ff;
         if (hit) {

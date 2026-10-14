@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 
-function metal(color, metalness = 0.7, roughness = 0.4) {
+function metal(color, metalness = 0.25, roughness = 0.55) {
   return new THREE.MeshStandardMaterial({ color, metalness, roughness });
 }
 
 // 무기별 외형 설정
 const GUN_CFG = {
-  pistol: { barrelLen: 0.26, barrelR: 0.016, bodyLen: 0.3, stock: false, mag: 'small', color: 0x2b2f36, accent: 0x17191d },
-  smg: { barrelLen: 0.32, barrelR: 0.017, bodyLen: 0.34, stock: false, mag: 'long', color: 0x2b2f36, accent: 0x17191d },
-  rifle: { barrelLen: 0.5, barrelR: 0.018, bodyLen: 0.42, stock: true, mag: 'curved', color: 0x2b2f36, accent: 0x17191d },
-  shotgun: { barrelLen: 0.58, barrelR: 0.03, bodyLen: 0.4, stock: true, mag: 'tube', color: 0x4a3a2a, accent: 0x241a10 },
-  sniper: { barrelLen: 0.74, barrelR: 0.02, bodyLen: 0.46, stock: true, mag: 'small', color: 0x2b2f36, accent: 0x17191d, scope: true },
-  lmg: { barrelLen: 0.46, barrelR: 0.022, bodyLen: 0.44, stock: true, mag: 'box', color: 0x2b2f36, accent: 0x17191d },
+  pistol: { barrelLen: 0.26, barrelR: 0.016, bodyLen: 0.3, stock: false, mag: 'small', color: 0x4a525c, accent: 0x2a3038 },
+  smg: { barrelLen: 0.32, barrelR: 0.017, bodyLen: 0.34, stock: false, mag: 'long', color: 0x4a525c, accent: 0x2a3038 },
+  rifle: { barrelLen: 0.5, barrelR: 0.018, bodyLen: 0.42, stock: true, mag: 'curved', color: 0x4a525c, accent: 0x2a3038 },
+  shotgun: { barrelLen: 0.58, barrelR: 0.03, bodyLen: 0.4, stock: true, mag: 'tube', color: 0x6a5240, accent: 0x3a2c1e },
+  sniper: { barrelLen: 0.74, barrelR: 0.02, bodyLen: 0.46, stock: true, mag: 'small', color: 0x4a525c, accent: 0x2a3038, scope: true },
+  lmg: { barrelLen: 0.46, barrelR: 0.022, bodyLen: 0.44, stock: true, mag: 'box', color: 0x4a525c, accent: 0x2a3038 },
 };
 
 const GUN_POS = new THREE.Vector3(0.34, -0.31, -0.55);
@@ -79,8 +79,8 @@ export class Viewmodel {
 
   buildKnife() {
     const g = this.knifeGroup;
-    const steel = metal(0xd7dde3, 0.9, 0.22);
-    const dark = metal(0x2a2420, 0.4, 0.7);
+    const steel = metal(0xd7dde3, 0.4, 0.3);
+    const dark = metal(0x3a322b, 0.2, 0.7);
 
     // 칼날(앞쪽 -z)
     this.box(g, 0.02, 0.05, 0.24, 0, 0.02, -0.16, steel);
@@ -107,9 +107,9 @@ export class Viewmodel {
     }
 
     const cfg = GUN_CFG[weapon.id] || GUN_CFG.rifle;
-    const main = metal(cfg.color, 0.6, 0.5);
-    const dark = metal(cfg.accent, 0.7, 0.45);
-    const steel = metal(0x9aa2ab, 0.85, 0.35);
+    const main = metal(cfg.color, 0.25, 0.5);
+    const dark = metal(cfg.accent, 0.3, 0.55);
+    const steel = metal(0xb8c0c8, 0.5, 0.3);
 
     // 몸통(리시버)
     this.box(g, 0.06, 0.09, cfg.bodyLen, 0, 0, -0.05, main);
