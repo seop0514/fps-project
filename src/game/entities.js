@@ -2,13 +2,17 @@ import * as THREE from 'three';
 import { getKnife, randomGun } from './weapons.js';
 import { resolveCollision } from './map.js';
 
-const EYE_HEIGHT = 1.7;
 const BASE_SPEED = 5.0;
 const GRAVITY = -22;
 const JUMP_SPEED = 6.0;
 
+const SPRINT_MULT = 1.5;
+const CROUCH_MULT = 0.55;
+const STAND_EYE = 1.7;
+const CROUCH_EYE = 1.05;
+
 // AI 명중 정확도 배율 (낮을수록 에임이 약해짐)
-const BOT_ACCURACY = 0.6;
+const BOT_ACCURACY = 0.45;
 
 function clamp(v, a, b) {
   return Math.max(a, Math.min(b, v));
@@ -42,6 +46,10 @@ export class Player {
     this.lastKnife = 0;
 
     this.keys = {};
+
+    this.crouching = false;
+    this.sprinting = false;
+    this.eyeHeight = STAND_EYE;
   }
 
   get currentWeapon() {
@@ -66,19 +74,28 @@ export class Player {
     this.alive = true;
     this.reloading = false;
     this.firing = false;
+    this.crouching = false;
+    this.sprinting = false;
+    this.eyeHeight = STAND_EYE;
   }
 
   get eyePos() {
-    return new THREE.Vector3(this.pos.x, this.pos.y + EYE_HEIGHT, this.pos.z);
+    return new THREE.Vector3(this.pos.x, this.pos.y + this.eyeHeight, this.pos.z);
   }
 
-  // 이동 속도: 칼을 들고 있을 때만 증가
+  toggleCrouch() {
+    this.crouching = !this.crouching;
+  }
+
+  // 이동 속도: 칼을 들었을 때 / 달리기 / 앉기 반영
   get speed() {
-    const base = BASE_SPEED;
+    let s = BASE_SPEED;
     if (this.currentWeapon && this.currentWeapon.kind === 'melee') {
-      return base * this.currentWeapon.speedMultiplier;
+      s *= this.currentWeapon.speedMultiplier;
     }
-    return base;
+    if (this.sprinting) s *= SPRINT_MULT;
+    if (this.crouching) s *= CROUCH_MULT;
+    return s;
   }
 
   takeDamage(amount, attacker) {
@@ -154,10 +171,19 @@ export class Player {
     if (this.keys['KeyS']) move.sub(forward);
     if (this.keys['KeyD']) move.add(right);
     if (this.keys['KeyA']) move.sub(right);
-    if (move.lengthSq() > 0) move.normalize();
+    const isMoving = move.lengthSq() > 0;
+    if (isMoving) move.normalize();
+
+    // 달리기: Shift + 이동 + 앉지 않음
+    const shiftHeld = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
+    this.sprinting = shiftHeld && isMoving && !this.crouching;
 
     this.vel.x = move.x * this.speed;
     this.vel.z = move.z * this.speed;
+
+    // 앉기 시 눈높이 부드럽게 조절
+    const targetEye = this.crouching ? CROUCH_EYE : STAND_EYE;
+    this.eyeHeight += (targetEye - this.eyeHeight) * Math.min(1, dt * 12);
 
     // 점프
     if (this.keys['Space'] && this.onGround) {
@@ -228,6 +254,12 @@ export class Bot {
 
     this.strafeDir = Math.random() < 0.5 ? -1 : 1;
     this.strafeTimer = 0;
+
+    // 반응 지연/조준 시간 (보자마자 바로 못 쏘게)
+    this.aimTime = 0;
+    this.aimTarget = null;
+    this.reactionDelay = 0.45 + Math.random() * 0.5; // 0.45 ~ 0.95초
+    this.settleTime = 0.55;
 
     this.buildMesh();
   }
@@ -335,6 +367,17 @@ export class Bot {
     // --- 시야 판정(장애물에 막히는지) ---
     const los = this.game.hasLineOfSight(myEye, targetEye);
 
+    // --- 조준 시간(반응 지연): 타겟이 바뀌면 리셋 ---
+    if (target !== this.aimTarget) {
+      this.aimTarget = target;
+      this.aimTime = 0;
+    }
+    if (los && dist < weapon.range) {
+      this.aimTime += dt;
+    } else {
+      this.aimTime = Math.max(0, this.aimTime - dt * 2.5);
+    }
+
     // --- 이동 ---
     const move = new THREE.Vector3();
     const desired = weapon.kind === 'melee' ? 0.8 : Math.max(6, weapon.range * 0.5);
@@ -366,7 +409,10 @@ export class Bot {
       }
     } else {
       const interval = 60 / weapon.rpm;
+      // 반응 지연이 지나야 사격 시작, 조준 시간이 쌓일수록 정확해짐
+      const settled = clamp((this.aimTime - this.reactionDelay) / this.settleTime, 0, 1);
       if (
+        settled > 0 &&
         los &&
         dist < weapon.range &&
         !this.reloading &&
@@ -376,7 +422,10 @@ export class Bot {
         this.lastShot = time;
         this.mag--;
         // 확률 기반 명중 (AI 에임 정확도)
-        const p = clamp(1 - dist / weapon.range, 0.08, 0.75) * BOT_ACCURACY;
+        const p =
+          clamp(1 - dist / weapon.range, 0.06, 0.7) *
+          BOT_ACCURACY *
+          (0.4 + 0.6 * settled);
         const hit = Math.random() < p;
         const tracerColor = this.team === 'B' ? 0xff6b5e : 0x6fb1ff;
         if (hit) {

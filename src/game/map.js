@@ -27,19 +27,43 @@ export function buildMap(scene) {
   const colliders = [];
   const obstacleMeshes = [];
 
-  // 장애물 정의 { x, z, w, h, d, color }
+  // 장애물 정의 { x, z, w, h, d, color } — 대칭 구조의 아레나
   const defs = [
-    { x: 0, z: 0, w: 6, h: 2.5, d: 6, color: 0x8a6a4a },      // 중앙 크레이트
-    { x: -14, z: -10, w: 3.2, h: 2, d: 3.2, color: 0x777c82 },
-    { x: 14, z: -10, w: 3.2, h: 2, d: 3.2, color: 0x777c82 },
-    { x: -14, z: 10, w: 3.2, h: 2, d: 3.2, color: 0x777c82 },
-    { x: 14, z: 10, w: 3.2, h: 2, d: 3.2, color: 0x777c82 },
-    { x: -8, z: -18, w: 2.2, h: 1.8, d: 5, color: 0x5c636b },
-    { x: 8, z: -18, w: 2.2, h: 1.8, d: 5, color: 0x5c636b },
-    { x: -8, z: 18, w: 2.2, h: 1.8, d: 5, color: 0x5c636b },
-    { x: 8, z: 18, w: 2.2, h: 1.8, d: 5, color: 0x5c636b },
-    { x: -22, z: 0, w: 3, h: 2.2, d: 3, color: 0x6b737b },
-    { x: 22, z: 0, w: 3, h: 2.2, d: 3, color: 0x6b737b },
+    // 중앙 구조물
+    { x: 0, z: 0, w: 7, h: 3, d: 7, color: 0x8a6a4a },
+    { x: 0, z: 0, w: 3, h: 4.6, d: 3, color: 0x7a5c42 },
+
+    // 중앙을 가로지르는 레인 벽(좌/우)
+    { x: -20, z: 0, w: 2.4, h: 2.6, d: 13, color: 0x6b737b },
+    { x: 20, z: 0, w: 2.4, h: 2.6, d: 13, color: 0x6b737b },
+
+    // 4사분면 미드 커버
+    { x: -12, z: -12, w: 3.6, h: 2.1, d: 3.6, color: 0x777c82 },
+    { x: 12, z: -12, w: 3.6, h: 2.1, d: 3.6, color: 0x777c82 },
+    { x: -12, z: 12, w: 3.6, h: 2.1, d: 3.6, color: 0x777c82 },
+    { x: 12, z: 12, w: 3.6, h: 2.1, d: 3.6, color: 0x777c82 },
+
+    // 코너 커버(사이드)
+    { x: -27, z: -8, w: 3.4, h: 2.2, d: 3.4, color: 0x5c636b },
+    { x: 27, z: -8, w: 3.4, h: 2.2, d: 3.4, color: 0x5c636b },
+    { x: -27, z: 8, w: 3.4, h: 2.2, d: 3.4, color: 0x5c636b },
+    { x: 27, z: 8, w: 3.4, h: 2.2, d: 3.4, color: 0x5c636b },
+
+    // 스폰 근처 사이드 커버
+    { x: -9, z: -21, w: 2.2, h: 2, d: 5, color: 0x6b737b },
+    { x: 9, z: -21, w: 2.2, h: 2, d: 5, color: 0x6b737b },
+    { x: -9, z: 21, w: 2.2, h: 2, d: 5, color: 0x6b737b },
+    { x: 9, z: 21, w: 2.2, h: 2, d: 5, color: 0x6b737b },
+
+    // 낮은 엄폐 크레이트(앉아서 숨기 좋은)
+    { x: -5.5, z: -5.5, w: 1.9, h: 1.2, d: 1.9, color: 0x9a7a55 },
+    { x: 5.5, z: -5.5, w: 1.9, h: 1.2, d: 1.9, color: 0x9a7a55 },
+    { x: -5.5, z: 5.5, w: 1.9, h: 1.2, d: 1.9, color: 0x9a7a55 },
+    { x: 5.5, z: 5.5, w: 1.9, h: 1.2, d: 1.9, color: 0x9a7a55 },
+
+    // 긴 커버 벽(중앙 레인)
+    { x: 0, z: -11, w: 9, h: 1.5, d: 2.2, color: 0x5c636b },
+    { x: 0, z: 11, w: 9, h: 1.5, d: 2.2, color: 0x5c636b },
   ];
 
   for (const d of defs) {

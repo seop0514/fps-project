@@ -72,6 +72,8 @@ export class Game {
     this.shootTargets = [];
     this.tracers = [];
     this._dmgFlashT = 0;
+    this.zoomed = false;
+    this.fovBase = 75;
 
     this.raycaster = new THREE.Raycaster();
 
@@ -166,10 +168,11 @@ export class Game {
         <li>체력은 100. 상대 팀을 전멸시키면 라운드 승리.</li>
       </ul>
       <div class="controls">
-        <div><b>W A S D</b> 이동</div>
+        <div><b>W A S D</b> 이동 &nbsp; <b>Shift</b> 달리기</div>
         <div><b>마우스</b> 시점 / <b>좌클릭</b> 공격</div>
-        <div><b>1 / 2</b> 총 / 칼 전환</div>
+        <div><b>1 / 2</b> 총 / 칼 전환 &nbsp; <b>C</b> 앉기</div>
         <div><b>R</b> 재장전 &nbsp; <b>Space</b> 점프</div>
+        <div><b>우클릭</b> 저격총 줌</div>
       </div>
       <button class="btn" id="startBtn">클릭하여 시작</button>
     `;
@@ -223,6 +226,7 @@ export class Game {
         if (e.code === 'Digit1') this.player.switchWeapon(0);
         if (e.code === 'Digit2') this.player.switchWeapon(1);
         if (e.code === 'KeyR') this.player.startReload();
+        if (e.code === 'KeyC') this.player.toggleCrouch();
         if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
           e.preventDefault();
         }
@@ -232,6 +236,20 @@ export class Game {
       if (this.player) this.player.keys[e.code] = false;
     };
     this._onMouseDown = (e) => {
+      if (e.button === 2) {
+        // 우클릭: 저격총 줌 토글
+        if (
+          this.controls.isLocked &&
+          this.phase === 'playing' &&
+          this.player &&
+          this.player.alive &&
+          this.player.currentWeapon &&
+          this.player.currentWeapon.id === 'sniper'
+        ) {
+          this.zoomed = !this.zoomed;
+        }
+        return;
+      }
       if (e.button !== 0) return;
       if (!this.controls.isLocked || this.phase !== 'playing') return;
       if (!this.player || !this.player.alive) return;
@@ -247,11 +265,15 @@ export class Game {
       if (e.button !== 0) return;
       if (this.player) this.player.firing = false;
     };
+    this._onContextMenu = (e) => {
+      e.preventDefault();
+    };
 
     document.addEventListener('keydown', this._onKeyDown);
     document.addEventListener('keyup', this._onKeyUp);
     document.addEventListener('mousedown', this._onMouseDown);
     document.addEventListener('mouseup', this._onMouseUp);
+    document.addEventListener('contextmenu', this._onContextMenu);
   }
 
   // ------------------------------------------------------------ 컨트롤 이벤트
@@ -319,6 +341,9 @@ export class Game {
   startRound(n) {
     this.round = n;
     this.phase = 'playing';
+    this.zoomed = false;
+    this.camera.fov = this.fovBase;
+    this.camera.updateProjectionMatrix();
 
     // 라운드마다 랜덤 총 지급
     this.player.setLoadout(randomGun());
@@ -604,6 +629,17 @@ export class Game {
       this.player &&
       this.player.alive;
 
+    // 저격총 줌(FOV) 처리
+    if (this.player && this.player.currentWeapon && this.player.currentWeapon.id !== 'sniper') {
+      this.zoomed = false;
+    }
+    const targetFov = this.zoomed ? 20 : this.fovBase;
+    if (Math.abs(this.camera.fov - targetFov) > 0.05) {
+      this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 14);
+      this.camera.updateProjectionMatrix();
+    }
+    this.controls.pointerSpeed = this.zoomed ? 0.35 : 1.0;
+
     // 트레이서 갱신
     for (let i = this.tracers.length - 1; i >= 0; i--) {
       const t = this.tracers[i];
@@ -674,6 +710,7 @@ export class Game {
     document.removeEventListener('keyup', this._onKeyUp);
     document.removeEventListener('mousedown', this._onMouseDown);
     document.removeEventListener('mouseup', this._onMouseUp);
+    document.removeEventListener('contextmenu', this._onContextMenu);
     this.controls.removeEventListener('lock', this.onLock);
     this.controls.removeEventListener('unlock', this.onUnlock);
     this.controls.dispose();
