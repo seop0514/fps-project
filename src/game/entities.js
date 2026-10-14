@@ -374,9 +374,23 @@ export class Bot {
         this.mag--;
         // 확률 기반 명중
         const p = clamp(1 - dist / weapon.range, 0.12, 0.85) * 0.85;
-        if (Math.random() < p) {
+        const hit = Math.random() < p;
+        const tracerColor = this.team === 'B' ? 0xff6b5e : 0x6fb1ff;
+        if (hit) {
           const dmg = this.botDamage(weapon, dist);
           target.takeDamage(dmg, this);
+          this.game.addTracer(myEye, targetEye, tracerColor);
+        } else {
+          const off = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.5,
+            (Math.random() - 0.5) * 0.5,
+            (Math.random() - 0.5) * 0.5
+          );
+          this.game.addTracer(
+            myEye,
+            targetEye.clone().add(off.multiplyScalar(0.3 + dist * 0.02)),
+            tracerColor
+          );
         }
         if (this.mag <= 0) {
           this.reloading = true;
