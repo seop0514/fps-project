@@ -84,6 +84,81 @@ export function buildMap(scene) {
     });
   }
 
+  // ===== 장식: 경계 벽 =====
+  const wallDefs = [
+    { x: 0, z: -30, w: 82, h: 3.5, d: 1.2 },
+    { x: 0, z: 30, w: 82, h: 3.5, d: 1.2 },
+    { x: -40, z: 0, w: 1.2, h: 3.5, d: 62 },
+    { x: 40, z: 0, w: 1.2, h: 3.5, d: 62 },
+  ];
+  for (const w of wallDefs) {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(w.w, w.h, w.d),
+      new THREE.MeshStandardMaterial({ color: 0x4a5158, roughness: 0.9 })
+    );
+    mesh.position.set(w.x, w.h / 2, w.z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    obstacleMeshes.push(mesh);
+    colliders.push({
+      minX: w.x - w.w / 2,
+      maxX: w.x + w.w / 2,
+      minZ: w.z - w.d / 2,
+      maxZ: w.z + w.d / 2,
+    });
+  }
+
+  // ===== 장식: 드럼통(원통) =====
+  const barrelDefs = [
+    { x: -16, z: -5, c: 0xb0413e },
+    { x: 16, z: -5, c: 0xb0413e },
+    { x: -16, z: 5, c: 0xb0413e },
+    { x: 16, z: 5, c: 0xb0413e },
+    { x: 0, z: -16, c: 0x3f7fae },
+    { x: 0, z: 16, c: 0x3f7fae },
+    { x: -24, z: -14, c: 0xb0413e },
+    { x: 24, z: -14, c: 0xb0413e },
+  ];
+  const BARREL_R = 0.65;
+  const BARREL_H = 1.3;
+  for (const b of barrelDefs) {
+    const mesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(BARREL_R, BARREL_R, BARREL_H, 14),
+      new THREE.MeshStandardMaterial({ color: b.c, roughness: 0.55 })
+    );
+    mesh.position.set(b.x, BARREL_H / 2, b.z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    obstacleMeshes.push(mesh);
+    colliders.push({
+      minX: b.x - BARREL_R,
+      maxX: b.x + BARREL_R,
+      minZ: b.z - BARREL_R,
+      maxZ: b.z + BARREL_R,
+    });
+  }
+
+  // ===== 장식: 스폰 구역 패드(평평, 충돌 없음) =====
+  const padA = new THREE.Mesh(
+    new THREE.PlaneGeometry(22, 6),
+    new THREE.MeshStandardMaterial({ color: 0x2f5f8f, roughness: 0.9 })
+  );
+  padA.rotation.x = -Math.PI / 2;
+  padA.position.set(0, 0.02, 25);
+  padA.receiveShadow = true;
+  group.add(padA);
+
+  const padB = new THREE.Mesh(
+    new THREE.PlaneGeometry(22, 6),
+    new THREE.MeshStandardMaterial({ color: 0x8f3a35, roughness: 0.9 })
+  );
+  padB.rotation.x = -Math.PI / 2;
+  padB.position.set(0, 0.02, -25);
+  padB.receiveShadow = true;
+  group.add(padB);
+
   const bounds = { minX: -39, maxX: 39, minZ: -29, maxZ: 29 };
 
   // 팀 A(아군) 스폰: +z 방향 / 팀 B(적군) 스폰: -z 방향

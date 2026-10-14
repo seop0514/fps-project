@@ -3,7 +3,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { buildMap } from './map.js';
 import { Player, Bot } from './entities.js';
 import { Viewmodel } from './viewmodel.js';
-import { randomGun } from './weapons.js';
+import { WEAPONS, randomGun } from './weapons.js';
 
 const ROUNDS_TO_WIN = 3;
 const TOTAL_ROUNDS = 5;
@@ -74,6 +74,9 @@ export class Game {
     this._dmgFlashT = 0;
     this.zoomed = false;
     this.fovBase = 75;
+
+    this.spectating = false;
+    this.spectateIndex = 0;
 
     this.raycaster = new THREE.Raycaster();
 
@@ -163,7 +166,7 @@ export class Game {
       <h1 class="title">5 vs 5 FPS</h1>
       <p class="subtitle">5라운드 중 3라운드를 먼저 승리하면 승리</p>
       <ul class="rules">
-        <li>각 라운드마다 <b>랜덤 총</b>이 지급됩니다.</li>
+        <li>각 라운드 시작 시 <b>총을 선택</b>할 수 있습니다.</li>
         <li><b>칼</b>은 항상 지급되며, 칼을 들고 있을 때만 <b>이동 속도가 증가</b>합니다.</li>
         <li>체력은 100. 상대 팀을 전멸시키면 라운드 승리.</li>
       </ul>
@@ -227,6 +230,8 @@ export class Game {
         if (e.code === 'Digit2') this.player.switchWeapon(1);
         if (e.code === 'KeyR') this.player.startReload();
         if (e.code === 'KeyC') this.player.toggleCrouch();
+        if (this.spectating && e.code === 'ArrowLeft') this.cycleSpectate(-1);
+        if (this.spectating && e.code === 'ArrowRight') this.cycleSpectate(1);
         if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
           e.preventDefault();
         }
@@ -252,7 +257,12 @@ export class Game {
       }
       if (e.button !== 0) return;
       if (!this.controls.isLocked || this.phase !== 'playing') return;
-      if (!this.player || !this.player.alive) return;
+      if (!this.player) return;
+      if (!this.player.alive) {
+        // 사망(관전) 상태에서는 좌클릭으로 관전 대상 전환
+        this.cycleSpectate(1);
+        return;
+      }
       const p = this.player;
       p.firing = true;
       const w = p.currentWeapon;
@@ -340,12 +350,12 @@ export class Game {
 
   startRound(n) {
     this.round = n;
-    this.phase = 'playing';
     this.zoomed = false;
+    this.spectating = false;
     this.camera.fov = this.fovBase;
     this.camera.updateProjectionMatrix();
 
-    // 라운드마다 랜덤 총 지급
+    // 플레이어는 기본으로 랜덤 총을 들려두고, 이후 무기 선택 화면에서 결정
     this.player.setLoadout(randomGun());
     this.player.respawn(this.spawnA[0]);
     this.player.current = 0;
@@ -367,9 +377,62 @@ export class Game {
       b.current = 0;
     }
 
+    // 카메라를 스폰 위치로 이동
+    this.camera.position.copy(this.player.eyePos);
+    this.camera.quaternion.identity();
+
     this.el.deathNotice.style.display = 'none';
     this.updateHUD();
-    this.showMessage(`ROUND ${n}`, 1.5);
+
+    // 무기 선택 화면으로 진입
+    this.showWeaponSelect();
+  }
+
+  showWeaponSelect() {
+    this.phase = 'weaponSelect';
+    this.controls.unlock();
+
+    const guns = WEAPONS.filter((w) => w.kind === 'gun');
+    const cards = guns
+      .map(
+        (w) => `
+        <button class="gun-card" data-id="${w.id}">
+          <div class="gun-card-name">${w.name}</div>
+          <div class="gun-card-stats">
+            데미지 ${w.damage} · ${w.rpm}rpm · 탄창 ${w.magSize}
+          </div>
+        </button>`
+      )
+      .join('');
+
+    this.el.overlay.style.display = 'flex';
+    this.el.overlayInner.innerHTML = `
+      <h2 class="title sm">무기 선택</h2>
+      <p class="subtitle">ROUND ${this.round} — 사용할 총을 고르세요</p>
+      <div class="gun-grid">${cards}</div>
+      <button class="btn ghost" id="randomGunBtn">랜덤으로 시작</button>
+    `;
+
+    const pick = (gun) => {
+      this.player.setLoadout(gun);
+      this.player.current = 0;
+      this.hideOverlay();
+      this.phase = 'playing';
+      this.updateHUD();
+      this.showMessage(`ROUND ${this.round}`, 1.5);
+      this.controls.lock();
+    };
+
+    this.el.overlayInner.querySelectorAll('.gun-card').forEach((el) => {
+      el.addEventListener('click', () => {
+        const id = el.getAttribute('data-id');
+        const gun = WEAPONS.find((w) => w.id === id);
+        if (gun) pick(gun);
+      });
+    });
+    this.el.overlayInner.querySelector('#randomGunBtn').addEventListener('click', () => {
+      pick(randomGun());
+    });
   }
 
   get aliveA() {
@@ -387,8 +450,31 @@ export class Game {
   onPlayerDeath(attacker) {
     this.addKill(this.label(attacker), '나', attacker);
     this.el.deathNotice.style.display = 'block';
-    this.el.deathNotice.textContent = '사망 — 라운드 종료까지 관전 중';
+    this.spectating = true;
+    this.spectateIndex = 0;
+    this.updateSpectateNotice();
     this.checkRoundEnd();
+  }
+
+  updateSpectateNotice() {
+    const allies = this.getAliveAllies();
+    if (allies.length > 0) {
+      const t = allies[this.spectateIndex % allies.length];
+      this.el.deathNotice.textContent = `관전 중: 아군 봇 ${t.idx + 1}  (클릭 / ← → 로 전환)`;
+    } else {
+      this.el.deathNotice.textContent = '사망 — 라운드 종료까지 관전 중';
+    }
+  }
+
+  getAliveAllies() {
+    return this.bots.filter((b) => b.alive && b.team === 'A');
+  }
+
+  cycleSpectate(dir = 1) {
+    const allies = this.getAliveAllies();
+    if (allies.length === 0) return;
+    this.spectateIndex = (this.spectateIndex + dir + allies.length) % allies.length;
+    this.updateSpectateNotice();
   }
 
   onBotDeath(bot, attacker) {
@@ -609,6 +695,14 @@ export class Game {
 
     if (this.phase === 'playing') {
       if (this.player) this.player.update(dt, this.time);
+      // 관전 모드: 사망 시 아군 위치로 카메라 이동
+      if (this.player && !this.player.alive && this.spectating) {
+        const allies = this.getAliveAllies();
+        if (allies.length > 0) {
+          const t = allies[this.spectateIndex % allies.length];
+          this.camera.position.copy(t.eyePos);
+        }
+      }
       for (const b of this.bots) b.update(dt, this.time);
       this.updateHUD();
     } else if (this.phase === 'roundEnd') {
